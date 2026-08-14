@@ -1,0 +1,12 @@
+{
+  "name": "wizard-contracts",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "forge build",
+    "test": "forge test"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.2"
+  }
+}
