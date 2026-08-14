@@ -1,0 +1,9 @@
+node_modules/
+cache/
+out/
+broadcast/
+.env
+.env.local
+*.log
+.DS_Store
+foundry.lock
