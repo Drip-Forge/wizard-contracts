@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Wizard API
+    url: https://github.com/Drip-Forge/wizard-api/issues
+    about: Analysis HTTP service
+  - name: Wizard UI
+    url: https://github.com/Drip-Forge/wizard-ui/issues
+    about: Dashboard and wallet
+  - name: Drips protocol docs
+    url: https://docs.drips.network/the-protocol/overview/
+    about: Splits, streams, drivers
