@@ -1,45 +1,57 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "./interfaces/IDripsHub.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IAddressDriver} from "./interfaces/IAddressDriver.sol";
+import {SplitsLib} from "./libraries/SplitsLib.sol";
 
 /**
  * @title FundingParser
- * @notice Abstract base contract for parsing project dependency/funding configurations and translating them into Drips configurations.
+ * @notice Abstract adapter that turns off-chain funding metadata into a Drips splits configuration.
+ * @dev Calling `setSplits` through this contract configures the *contract's* AddressDriver account.
+ *      That is the intended pattern for a protocol treasury or splitter contract.
+ *      GitHub repositories claimed via FUNDING.json are instead managed by the Drips RepoDriver
+ *      in the Drips app — see docs/integration.md.
  */
 abstract contract FundingParser is Ownable {
-    
-    // Reference to the DripsHub contract
-    IDripsHub public immutable dripsHub;
-    
-    event FundingParsed(string indexed ipfsHash, uint256 totalWeight);
-    event SplitsUpdated(uint256 indexed receiverUserId, bytes32 splitsHash);
+    IAddressDriver public immutable addressDriver;
 
-    constructor(address _dripsHub) Ownable(msg.sender) {
-        require(_dripsHub != address(0), "Invalid DripsHub address");
-        dripsHub = IDripsHub(_dripsHub);
+    event FundingParsed(bytes32 indexed sourceHash, uint32 totalWeight);
+    event SplitsUpdated(bytes32 splitsHash, uint32 totalWeight);
+
+    error InvalidAddressDriver();
+
+    constructor(address addressDriver_) Ownable(msg.sender) {
+        if (addressDriver_ == address(0)) revert InvalidAddressDriver();
+        addressDriver = IAddressDriver(addressDriver_);
     }
 
     /**
-     * @notice Parses dependency funding configuration metadata.
-     * @dev Must be implemented by inheriting contracts to parse specific formats (e.g. package.json, Cargo.toml).
-     * @param metadataHash The IPFS or content hash containing the configuration.
-     * @return receivers Array of splits receiver configurations to be sent to DripsHub.
+     * @notice Parse a content hash (IPFS CID, git SHA, or keccak of package.json) into receivers.
+     * @dev Implementations may fetch metadata off-chain (via an oracle) or simply document that
+     *      callers should use `applySplits` with receivers produced by wizard-api.
      */
-    function parseFunding(string calldata metadataHash) 
-        external 
-        virtual 
-        returns (IDripsHub.SplitsReceiver[] memory receivers);
-        
+    function parseFunding(string calldata metadataHash)
+        external
+        virtual
+        returns (IAddressDriver.SplitsReceiver[] memory receivers);
+
     /**
-     * @notice Updates the Drips splits configuration for a project user.
-     * @param receiverUserId The Drips account ID to update.
-     * @param receivers The split receivers configuration.
+     * @notice Validate `receivers` against Drips rules and write them to AddressDriver.
+     * @dev Splits are applied to this contract's AddressDriver account (`msg.sender` inside the driver).
      */
-    function _updateSplits(uint256 receiverUserId, IDripsHub.SplitsReceiver[] memory receivers) internal {
-        // Core implementation to write/register splits to DripsHub
-        bytes32 hash = dripsHub.setSplits(receivers);
-        emit SplitsUpdated(receiverUserId, hash);
+    function applySplits(IAddressDriver.SplitsReceiver[] calldata receivers)
+        public
+        onlyOwner
+        returns (bytes32 splitsHash)
+    {
+        return _applySplits(receivers);
+    }
+
+    function _applySplits(IAddressDriver.SplitsReceiver[] memory receivers) internal returns (bytes32 splitsHash) {
+        uint32 totalWeight = SplitsLib.validate(receivers);
+        addressDriver.setSplits(receivers);
+        splitsHash = SplitsLib.hashReceivers(receivers);
+        emit SplitsUpdated(splitsHash, totalWeight);
     }
 }

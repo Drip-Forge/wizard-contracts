@@ -2,9 +2,12 @@
   "name": "wizard-contracts",
   "version": "1.0.0",
   "private": true,
+  "description": "Foundry contracts that validate Drips splits and apply wizard-api dependency proposals on-chain.",
   "scripts": {
-    "build": "forge build",
-    "test": "forge test"
+    "build": "node api.js && forge build",
+    "test": "forge test -vvv",
+    "fmt": "forge fmt",
+    "fmt:check": "forge fmt --check"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.0.2"

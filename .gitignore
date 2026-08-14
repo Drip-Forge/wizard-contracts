@@ -1,0 +1,13 @@
+node_modules/
+cache/
+out/
+broadcast/
+.env
+.env.local
+*.log
+.DS_Store
+foundry.lock
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat
+.gitignore
