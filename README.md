@@ -1,31 +1,64 @@
 # wizard-contracts
 
-This repository houses the Solidity smart contract logic for the **Wizard** project under the **DripForge** organization. It interfaces directly with the **Drips Protocol** to manage automatic dependency-based token splits.
+Foundry contracts for **DripForge Wizard**. They encode Drips splits rules on-chain and apply a [wizard-api](https://github.com/Drip-Forge/wizard-api) analysis as a receivers list.
 
-## Architecture
+This repository is one of three. Read them together:
 
-At the core of the contract design is the `FundingParser`:
+| Layer | Repository | What it does |
+| --- | --- | --- |
+| UI | [wizard-ui](https://github.com/Drip-Forge/wizard-ui) | Dashboard that uploads `package.json` and downloads `FUNDING.json` |
+| API | [wizard-api](https://github.com/Drip-Forge/wizard-api) | Off-chain validation + splits proposal (weights out of 1,000,000) |
+| Chain | **wizard-contracts** (this repo) | `SplitsLib` + `DependencySplits` → Drips `AddressDriver` |
 
-1.  **`IDripsHub.sol`**: An interface describing the entry points for the Drips protocol, specifically the `setSplits` and `getSplitsHash` functions.
-2.  **`FundingParser.sol`**: An abstract base contract. It mandates inheriting classes to implement custom parsing logic for various dependency files (e.g. `package.json`, `Cargo.toml`, `mix.exs`) which resolve to a set of split receiver configurations (Drips user IDs and weights out of 1,000,000). The base contract then updates these configurations directly on the `DripsHub` on-chain registrar.
+**Docs in this repo**
 
-## Integration in Drips Ecosystem
+- [Documentation index](docs/README.md)
+- [Architecture](docs/architecture.md)
+- [Contract reference](docs/contracts.md)
+- [Integration with API / UI / Drips](docs/integration.md)
+- [Contributing](CONTRIBUTING.md)
 
-Drips uses a decentralized on-chain splits database. An address registry associates a code repository's ownership with an Ethereum account. The `FundingParser` automates updating the splits of this repository user's account whenever a verified dependency metadata file is updated.
+Sibling docs: [wizard-api Drips integration](https://github.com/Drip-Forge/wizard-api/blob/main/docs/drips-integration.md) · [wizard-ui getting started](https://github.com/Drip-Forge/wizard-ui/blob/main/docs/getting-started.md)
 
-This allows projects to declare dependencies on-chain and automatically stream a percentage of their incoming funding directly to their software dependencies, enabling a scalable open-source circular funding economy.
+## What is on-chain vs off-chain
 
-## Building and Testing
+Parsing `package.json` happens in wizard-api. These contracts **never** JSON-decode npm manifests. They:
 
-Prerequisites: [Foundry](https://github.com/foundry-rs/foundry) toolchain.
+1. Validate a splits receivers list against the same rules as Drips (sorted unique IDs, non-zero weights, ≤ 200 receivers, total weight ≤ 1,000,000)
+2. Optionally record a `sourceHash` of the analyzed file
+3. Call `AddressDriver.setSplits`, which configures **this contract's** Drips account
 
-### Commands
+GitHub repositories claimed via `FUNDING.json` are managed by Drips' RepoDriver in the [Drips app](https://docs.drips.network/get-support/claim-your-repository/). Use this repo when you want a **contract-owned** splitter (treasury, protocol fee sink) driven by Wizard's proposal.
 
-*   **Compile contracts**:
-    ```bash
-    forge build
-    ```
-*   **Run unit tests**:
-    ```bash
-    forge test
-    ```
+## Contracts
+
+| Contract | Path | Role |
+| --- | --- | --- |
+| `SplitsLib` | `src/libraries/SplitsLib.sol` | Pure validation + hash |
+| `FundingParser` | `src/FundingParser.sol` | Abstract Ownable adapter |
+| `DependencySplits` | `src/DependencySplits.sol` | Concrete parser for wizard-api output |
+| `IAddressDriver` | `src/interfaces/IAddressDriver.sol` | Subset of canonical Drips AddressDriver |
+
+## Quick start
+
+Prerequisites: [Foundry](https://book.getfoundry.sh/) and Node (OpenZeppelin via npm).
+
+```bash
+npm install
+forge test -vvv
+forge build
+```
+
+Deploy against a canonical AddressDriver:
+
+```bash
+ADDRESS_DRIVER=0x... PRIVATE_KEY=0x... forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast
+```
+
+## Claiming this repo on Drips
+
+Replace the zero address in [`FUNDING.json`](FUNDING.json) with the maintainer wallet before claiming.
+
+## License
+
+[MIT](LICENSE) © Drip-Forge
